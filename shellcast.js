@@ -16,6 +16,7 @@ const express = require('express'),
       path = require('path'),
       favicon = require('serve-favicon'),
       validator = require('validator');
+      basicAuth = require('express-basic-auth')
 
 // Set trust proxy before adding any middleware or routes
 app.set('trust proxy', true);
@@ -48,6 +49,19 @@ try {
     console.error('Error loading YAML config:', error);
     process.exit(1);
 }
+
+let users;
+
+try {
+    users = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
+}
+catch (error) {
+    console.error('Error loading YAML users:', error);
+    process.exit(1);
+}
+
+console.log(users)
+
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
 
