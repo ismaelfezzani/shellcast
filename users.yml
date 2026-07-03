@@ -1,0 +1,9 @@
+from-whitelist:
+  - fsi-core.univ-tlse3.fr
+users:
+  - user: toto
+    password: salutcava
+  - user: titi
+    password: moicava
+
+ 
