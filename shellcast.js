@@ -50,29 +50,51 @@ try {
     process.exit(1);
 }
 
-let users;
+let usersShellcast;
 
 try {
-    users = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))["users"]
+    usersShellcast = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))["users"]
 
     //Mise en format des utilisateurs pour le basic auth d'express
     let formatedUsers = {};
-    for (user in users){
-        let key = users[user]["user"];
-        let value =  users[user]["password"];
+    for (user in usersShellcast){
+        let key = usersShellcast[user]["user"];
+        let value =  usersShellcast[user]["password"];
 
         formatedUsers[key] = value;
 
     }
 
-    users = formatedUsers;
+    usersShellcast = formatedUsers;
 }
 catch (error) {
     console.error('Error loading YAML users:', error);
     process.exit(1);
 }
 
-console.log(users)
+
+
+function checkUser(username, password) {
+    let userNameCheck = Object.keys(usersShellcast).includes(username) ? username : 0
+    let passwordCheck = usersShellcast[username] !== undefined ? usersShellcast[username] : 0
+
+    try {
+        const userMatches = basicAuth.safeCompare(username, userNameCheck)
+        const passwordMatches = basicAuth.safeCompare(password, passwordCheck, 'custompassword')
+
+        return userMatches & passwordMatches
+    }
+    catch(error){
+        console.log("incorrect logins parameter")
+
+    }
+   
+
+    
+}
+
+
+app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
 
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
@@ -89,6 +111,8 @@ const adjustForbiddenChars = (serviceConfig) => {
         });
     }
 };
+
+
 
 // Fonction pour trouver un caractère interdit dans un argument
 const findForbiddenChar = (arg, serviceConfig) => {
