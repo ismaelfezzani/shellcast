@@ -16,7 +16,7 @@ const express = require('express'),
       path = require('path'),
       favicon = require('serve-favicon'),
       validator = require('validator');
-      basicAuth = require('express-basic-auth')
+      basicAuth = require('express-basic-auth');
 
 // Set trust proxy before adding any middleware or routes
 app.set('trust proxy', true);
@@ -53,7 +53,19 @@ try {
 let users;
 
 try {
-    users = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
+    users = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))["users"]
+
+    //Mise en format des utilisateurs pour le basic auth d'express
+    let formatedUsers = {};
+    for (user in users){
+        let key = users[user]["user"];
+        let value =  users[user]["password"];
+
+        formatedUsers[key] = value;
+
+    }
+
+    users = formatedUsers;
 }
 catch (error) {
     console.error('Error loading YAML users:', error);
