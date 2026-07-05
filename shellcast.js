@@ -133,6 +133,20 @@ io.sockets.on('connection', (socket) => {
                 castArgs.push(clientIp);
             }
 
+            // Add magic appUser var
+            if (cmd.includes("{appUser}")) {
+                let appUser = req.headers["x-remote-user"] || "unknown";
+                cmd = cmd.split("{appUser}").join(appUser);
+                castArgs.push(appUser);
+            }
+
+            // Add magic appGroup var
+            if (cmd.includes("{appGroup}")) {
+                let appGroup = req.headers["x-group"] || "unknown";
+                cmd = cmd.split("{appGroup}").join(appGroup);
+                castArgs.push(appGroup);
+            }
+
             const startTime = Date.now();
 
             const run = spawn('bash', ['-c', cmd]);
@@ -275,20 +289,6 @@ config.forEach((cast) => {
             let clientIp = req.ip;
             cmd = cmd.split("{clientIp}").join(clientIp);
             castArgs.push(clientIp);
-        }
-
-        // Add magic appUser var
-        if (cmd.includes("{appUser}")) {
-            let appUser = req.headers["x-remote-user"] || "unknown";
-            cmd = cmd.split("{appUser}").join(appUser);
-            castArgs.push(appUser);
-        }
-
-        // Add magic appGroup var
-        if (cmd.includes("{appGroup}")) {
-            let appGroup = req.headers["x-group"] || "unknown";
-            cmd = cmd.split("{appGroup}").join(appGroup);
-            castArgs.push(appGroup);
         }
 
         const run = spawn('bash', ['-c', cmd]);
