@@ -95,6 +95,45 @@ ln -s /etc/nginx/sites-available/shellcast /etc/nginx/sites-enabled/shellcast
 systemctl restart nginx
 ```
 
+### Get CAS informations from another app
+
+Create check_auth.php in your app to get CAS session
+```
+<?php
+
+session_start();
+if (!isset($_SESSION['phpCAS']['user'])) {
+    http_response_code(401);
+    exit;
+}
+$user = $_SESSION['phpCAS']['user'];
+$groupname = $_SESSION['phpCAS']['group'];
+header("X-Remote-User: ".$user);
+header("X-Group: ".$groupname);
+http_response_code(200);
+```
+
+Configure a location with check_auth endpoint
+
+```
+  location = /_check_auth {
+    internal;
+    proxy_pass http://localhost/app/check_auth.php;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Original-URI $request_uri;
+  }
+```
+
+Configure shellcast location to get user and group from check_auth
+```
+    auth_request /_check_auth;
+    auth_request_set $app_user  $upstream_http_x_remote_user;
+    auth_request_set $app_group $upstream_http_x_group;
+    proxy_set_header X-Remote-User $app_user;
+    proxy_set_header X-Group $app_group;
+```
+
 ### Start NodeJS app with systemd
 Create a service file in /etc/systemd/system/shellcast.service
 
