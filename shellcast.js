@@ -135,14 +135,14 @@ io.sockets.on('connection', (socket) => {
 
             // Add magic appUser var
             if (cmd.includes("{appUser}")) {
-                let appUser = req.headers["x-remote-user"] || "unknown";
+                let appUser = socket.handshake.headers["x-remote-user"] || "unknown";
                 cmd = cmd.split("{appUser}").join(appUser);
                 castArgs.push(appUser);
             }
 
             // Add magic appGroup var
             if (cmd.includes("{appGroup}")) {
-                let appGroup = req.headers["x-group"] || "unknown";
+                let appGroup = socket.handshake.headers["x-group"] || "unknown";
                 cmd = cmd.split("{appGroup}").join(appGroup);
                 castArgs.push(appGroup);
             }
