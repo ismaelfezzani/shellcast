@@ -28,6 +28,11 @@ app.use(subdir, express.static(path.join(__dirname, '/public')));
 app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(morgan('combined'));
 
+// Configure morgan logs
+morgan.token("user", (req) => req.headers["x-remote-user"] || "-");
+morgan.token("group", (req) => req.headers["x-group"] || "-");
+app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
+
 // Load YAML config
 let config;
 try {
@@ -126,6 +131,20 @@ io.sockets.on('connection', (socket) => {
                 let clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
                 cmd = cmd.split("{clientIp}").join(clientIp);
                 castArgs.push(clientIp);
+            }
+
+            // Add magic appUser var
+            if (cmd.includes("{appUser}")) {
+                let appUser = socket.handshake.headers["x-remote-user"] || "unknown";
+                cmd = cmd.split("{appUser}").join(appUser);
+                castArgs.push(appUser);
+            }
+
+            // Add magic appGroup var
+            if (cmd.includes("{appGroup}")) {
+                let appGroup = socket.handshake.headers["x-group"] || "unknown";
+                cmd = cmd.split("{appGroup}").join(appGroup);
+                castArgs.push(appGroup);
             }
 
             const startTime = Date.now();
@@ -265,7 +284,7 @@ config.forEach((cast) => {
             });
         }
 
-        // Add magic clientIP var
+        // Add magic clientIp var
         if (cmd.includes("{clientIp}")) {
             let clientIp = req.ip;
             cmd = cmd.split("{clientIp}").join(clientIp);
