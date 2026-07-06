@@ -133,25 +133,25 @@ io.sockets.on('connection', (socket) => {
                 });
             }
 
-            // Add magic clientIP var
-            if (cmd.includes("{clientIp}")) {
-                let clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-                cmd = cmd.split("{clientIp}").join(clientIp);
-                castArgs.push(clientIp);
+            // Add magic x_forwarded_for var
+            if (cmd.includes("{x_forwarded_for}")) {
+                let x_forwarded_for = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+                cmd = cmd.split("{x_forwarded_for}").join(x_forwarded_for);
+                castArgs.push(x_forwarded_for);
             }
 
-            // Add magic appUser var
-            if (cmd.includes("{appUser}")) {
-                let appUser = socket.handshake.headers["x-remote-user"] || "unknown";
-                cmd = cmd.split("{appUser}").join(appUser);
-                castArgs.push(appUser);
+            // Add magic x-remote-user var
+            if (cmd.includes("{x-remote-user}")) {
+                let x-remote-user = socket.handshake.headers["x-remote-user"] || "unknown";
+                cmd = cmd.split("{x-remote-user}").join(x-remote-user);
+                castArgs.push(x-remote-user);
             }
 
-            // Add magic appGroup var
-            if (cmd.includes("{appGroup}")) {
-                let appGroup = socket.handshake.headers["x-group"] || "unknown";
-                cmd = cmd.split("{appGroup}").join(appGroup);
-                castArgs.push(appGroup);
+            // Add magic x-group var
+            if (cmd.includes("{x-group}")) {
+                let x-group = socket.handshake.headers["x-group"] || "unknown";
+                cmd = cmd.split("{x-group}").join(x-group);
+                castArgs.push(x-group);
             }
 
             const startTime = Date.now();
@@ -293,11 +293,11 @@ config.forEach((cast) => {
             });
         }
 
-        // Add magic clientIp var
-        if (cmd.includes("{clientIp}")) {
-            let clientIp = req.ip;
-            cmd = cmd.split("{clientIp}").join(clientIp);
-            castArgs.push(clientIp);
+        // Add magic x_forwarded_for var
+        if (cmd.includes("{x_forwarded_for}")) {
+            let x_forwarded_for = req.ip;
+            cmd = cmd.split("{x_forwarded_for}").join(x_forwarded_for);
+            castArgs.push(x_forwarded_for);
         }
 
         const run = spawn('bash', ['-c', cmd]);
