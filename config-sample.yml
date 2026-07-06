@@ -29,7 +29,7 @@
   whitelist: ["(", ")", " "]
   # curl -Gs --data-urlencode "hostname=( f o o )" "http://localhost:3000/shellcast/args/test/plain?mac=00:11:22:33:44:55&password=suburlpass"
   # will be run as './tests/args.sh "(f o o)" "192.168.0.1" "00:11:22:33:44:55"'
-  cmd: ./tests/args.sh "{hostname}" "{clientIp}" "{mac}" "{hostname} has ip {clientIp} and mac {mac}"
+  cmd: ./tests/args.sh "{hostname}" "{x_forwarded_for}" "{mac}" "{hostname} has ip {x_forwarded_for} and mac {mac}"
   args:
     - hostname
     - mac
