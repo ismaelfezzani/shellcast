@@ -29,6 +29,11 @@ app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(morgan('combined'));
 
 // Configure morgan logs
+// TODO add fallback basic auth user
+//morgan.token("user", (req) => req.headers["x-remote-user"] || basic_auth_user || "-");
+// in logs : 127.0.0.1 - x_remote_user=krj9340a
+// in logs : 127.0.0.1 - x_group=di
+// in logs : 127.0.0.1 - local_user=toto
 morgan.token("user", (req) => req.headers["x-remote-user"] || "-");
 morgan.token("group", (req) => req.headers["x-group"] || "-");
 app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
@@ -251,6 +256,7 @@ config.forEach((cast) => {
     
     app.get(cast.url, (req, res) => {
         res.setHeader('Content-Type', 'text/plain');
+        // TODO test x-remote-user & x-group, fallback basic auth
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Missing or wrong password...');
         }
@@ -264,6 +270,7 @@ config.forEach((cast) => {
 
     app.get(cast.url + '/plain', (req, res) => {
         res.setHeader('Content-Type', 'text/plain');
+        // TODO basic auth
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Incorrect or missing password...');
         }

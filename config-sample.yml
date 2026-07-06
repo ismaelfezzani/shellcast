@@ -25,6 +25,15 @@
   url: /args/test
   # Set a password to query url as "?password=suburlpass"
   password: suburlpass
+  grant:
+    x_remote_user:
+      - krj9340a
+      - dlc0610a
+    x_group:
+      - di
+      - ens
+    local_user:
+      - toto
   # Whitelist some specific chars for that service
   whitelist: ["(", ")", " "]
   # curl -Gs --data-urlencode "hostname=( f o o )" "http://localhost:3000/shellcast/args/test/plain?mac=00:11:22:33:44:55&password=suburlpass"
