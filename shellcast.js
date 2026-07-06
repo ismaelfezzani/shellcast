@@ -51,9 +51,14 @@ try {
 }
 
 let usersShellcast;
+let whitelistedURLs
 
 try {
-    usersShellcast = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))["users"]
+    let usersFile = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
+    let usersShellcast = usersFile["users"]
+    let whitelistedURLs = usersFile["from-whitelist"]
+
+    console.log(whitelistedURLs)
 
     //Mise en format des utilisateurs pour le basic auth d'express
     let formatedUsers = {};
@@ -94,7 +99,6 @@ function checkUser(username, password) {
 }
 
 
-app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
 
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
@@ -161,9 +165,14 @@ io.sockets.on('connection', (socket) => {
         let castArgs = [];
         let cmd = '';
         let castHighlightJson = [];
+
+        console.log(url[1])
+
+        app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
+
         
         // Find the cast corresponding to the URL
-        const cast = config.find(c => c.url.replace(/\/$/, '') === url.replace(/\/$/, ''));
+        const cast = config.find(c => c.url.replace(/\/$/, '') === url[0].replace(/\/$/, ''));
         
         if (cast) {
             cmd = cast.cmd;
