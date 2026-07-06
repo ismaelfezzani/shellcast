@@ -133,18 +133,18 @@ io.sockets.on('connection', (socket) => {
                 castArgs.push(x_forwarded_for);
             }
 
-            // Add magic x-remote-user var
-            if (cmd.includes("{x-remote-user}")) {
-                let x-remote-user = socket.handshake.headers["x-remote-user"] || "unknown";
-                cmd = cmd.split("{x-remote-user}").join(x-remote-user);
-                castArgs.push(x-remote-user);
+            // Add magic x_remote_user var
+            if (cmd.includes("{x_remote_user}")) {
+                let x_remote_user = socket.handshake.headers["x-remote-user"] || "unknown";
+                cmd = cmd.split("{x_remote_user}").join(x_remote_user);
+                castArgs.push(x_remote_user);
             }
 
-            // Add magic x-group var
-            if (cmd.includes("{x-group}")) {
-                let x-group = socket.handshake.headers["x-group"] || "unknown";
-                cmd = cmd.split("{x-group}").join(x-group);
-                castArgs.push(x-group);
+            // Add magic x_group var
+            if (cmd.includes("{x_group}")) {
+                let x_group = socket.handshake.headers["x-group"] || "unknown";
+                cmd = cmd.split("{x_group}").join(x_group);
+                castArgs.push(x_group);
             }
 
             const startTime = Date.now();
