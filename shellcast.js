@@ -10,13 +10,14 @@ const express = require('express'),
       server = http.createServer(app),
       subdir = "/" + process.env.SUBDIR,
       { Server } = require('socket.io'),
-      io = new Server(server, { path: subdir + '/socket.io' }),
+      io = new Server(server , /*{ cors: { origin: "http://localhost:3000/shellcast/rainbow", credentials: true }},*/  { path: subdir + '/socket.io' }),
       yaml = require('js-yaml'),
       morgan = require('morgan'),
       path = require('path'),
       favicon = require('serve-favicon'),
-      validator = require('validator');
-      basicAuth = require('express-basic-auth');
+      validator = require('validator'),
+      basicAuth = require('express-basic-auth'),
+      { exec } = require('child_process');
 
 // Set trust proxy before adding any middleware or routes
 app.set('trust proxy', true);
@@ -37,9 +38,8 @@ app.use(morgan('combined'));
 // in logs : 127.0.0.1 - x_group=di
 // in logs : 127.0.0.1 - local_user=toto
 
-morgan.token("user", (req) => req.headers["x-remote-user"] || "-");
-morgan.token("group", (req) => req.headers["x-group"] || "-");
-app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
+
+
 
 // Load YAML config
 let config;
@@ -55,22 +55,23 @@ let whitelistedURLs
 
 try {
     let usersFile = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
-    let usersShellcast = usersFile["users"]
+    let users = usersFile["users"]
     let whitelistedURLs = usersFile["from-whitelist"]
 
     console.log(whitelistedURLs)
 
     //Mise en format des utilisateurs pour le basic auth d'express
     let formatedUsers = {};
-    for (user in usersShellcast){
-        let key = usersShellcast[user]["user"];
-        let value =  usersShellcast[user]["password"];
+    for (user in users){
+        let key = users[user]["user"];
+        let value =  users[user]["password"];
 
         formatedUsers[key] = value;
 
     }
 
     usersShellcast = formatedUsers;
+   
 }
 catch (error) {
     console.error('Error loading YAML users:', error);
@@ -78,10 +79,26 @@ catch (error) {
 }
 
 
+function getUserAndGroups(url){
+    app.get(url, (req, res) => {
+        // 1. Récupérer tous les headers
+        const tousLesHeaders = req.headers;
+        console.log(tousLesHeaders);
+
+    });
+}
+
+ 
+
 
 function checkUser(username, password) {
+    let usersFile
+    let userGroup
+
+
     let userNameCheck = Object.keys(usersShellcast).includes(username) ? username : 0
     let passwordCheck = usersShellcast[username] !== undefined ? usersShellcast[username] : 0
+
 
     try {
         const userMatches = basicAuth.safeCompare(username, userNameCheck)
@@ -98,7 +115,16 @@ function checkUser(username, password) {
     
 }
 
+morgan.token("user", (req) => { return req.headers["x-remote-user"] || "-"});
+morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
+   
 
+
+app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
+
+
+
+//app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
 
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
@@ -161,18 +187,19 @@ io.sockets.on('connection', (socket) => {
     
     //console.log(`Client ${clientId} connected.`);
 
+    //app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
+
     socket.on('init', (url) => {
         let castArgs = [];
         let cmd = '';
         let castHighlightJson = [];
-
-        console.log(url[1])
-
-        app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
-
+              
         
         // Find the cast corresponding to the URL
         const cast = config.find(c => c.url.replace(/\/$/, '') === url[0].replace(/\/$/, ''));
+
+        app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
+
         
         if (cast) {
             cmd = cast.cmd;
@@ -311,13 +338,27 @@ io.sockets.on('connection', (socket) => {
     });
 });
 
+
+const basicAuthShellcast = basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'})
+
 // Handle HTTP requests
 config.forEach((cast) => {
     cast.url = subdir + cast.url.replace(/\/$/, '');
     
-    app.get(cast.url, (req, res) => {
-        res.setHeader('Content-Type', 'text/plain');
+    app.get(cast.url,basicAuthShellcast, (req, res) => {
         // TODO test x-remote-user & x-group, fallback basic auth
+        let user = req.headers["x-remote-user"]
+        let group = req.headers["x-group"]
+
+        let authorizedUsers = config[config.length-1]["grant"]
+        console.log(authorizedUsers)
+
+        //if (! autho)
+
+        //app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
+
+
+
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Missing or wrong password...');
         }
@@ -332,6 +373,7 @@ config.forEach((cast) => {
     app.get(cast.url + '/plain', (req, res) => {
         res.setHeader('Content-Type', 'text/plain');
         // TODO basic auth
+
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Incorrect or missing password...');
         }
@@ -384,4 +426,6 @@ app.use((req, res) => {
 // Start the server and listen only ipv4
 server.listen(process.env.NODE_PORT, '0.0.0.0', () => {
     console.log('Server listening on *:' + process.env.NODE_PORT);
+
+   
 });
