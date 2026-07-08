@@ -122,11 +122,6 @@ morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
 
 app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
 
-
-
-//app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
-
-
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
 
 // Fonction pour ajuster les caractères interdits selon la whitelist du service
@@ -187,8 +182,6 @@ io.sockets.on('connection', (socket) => {
     
     //console.log(`Client ${clientId} connected.`);
 
-    //app.use(basicAuth({users: usersShellcast, authorizer : checkUser, challenge: true}))
-
     socket.on('init', (url) => {
         let castArgs = [];
         let cmd = '';
@@ -197,9 +190,6 @@ io.sockets.on('connection', (socket) => {
         
         // Find the cast corresponding to the URL
         const cast = config.find(c => c.url.replace(/\/$/, '') === url[0].replace(/\/$/, ''));
-
-        app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
-
         
         if (cast) {
             cmd = cast.cmd;
@@ -338,26 +328,36 @@ io.sockets.on('connection', (socket) => {
     });
 });
 
-
+//BasicAuth permettant aux utilisateurs locaux de se connecter
 const basicAuthShellcast = basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'})
+
+//middleware permettant d'appliquer ou non le middleware sous certaines conditions
+function authIfNeeded(req, res, next) {
+
+    //Récupération des users et du groupe passé en headers dans l'URL
+    const userId = req.headers["x-remote-user"];
+    const group = req.headers["x-group"];
+
+    //Récupération des users et groupes autorisés
+    let authorizedUsers = config[config.length-1]["grant"]
+
+    //On applique le basicauth si l'userId n'est pas contenu dans le config YML ou si le groupe n'est pas autorisé
+    if (!authorizedUsers["x_remote_user"].includes(userId) && !authorizedUsers["x_group"].includes(group) ){
+        return basicAuthShellcast(req, res, next); 
+    }
+
+    //Si l'URL de CURL contient comme paramètre un user ou un groupe autorisé
+    //on passe à la suite sans passer par le basic auth
+
+    return next();
+
+}
 
 // Handle HTTP requests
 config.forEach((cast) => {
     cast.url = subdir + cast.url.replace(/\/$/, '');
     
-    app.get(cast.url,basicAuthShellcast, (req, res) => {
-        // TODO test x-remote-user & x-group, fallback basic auth
-        let user = req.headers["x-remote-user"]
-        let group = req.headers["x-group"]
-
-        let authorizedUsers = config[config.length-1]["grant"]
-        console.log(authorizedUsers)
-
-        //if (! autho)
-
-        //app.use(basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'}))
-
-
+    app.get(cast.url, authIfNeeded, (req, res) => {       
 
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Missing or wrong password...');
@@ -370,7 +370,7 @@ config.forEach((cast) => {
         res.render('index', { title: cast.name, subdir: subdir });
     });
 
-    app.get(cast.url + '/plain', (req, res) => {
+    app.get(cast.url + '/plain' ,authIfNeeded ,(req, res) => {
         res.setHeader('Content-Type', 'text/plain');
         // TODO basic auth
 
