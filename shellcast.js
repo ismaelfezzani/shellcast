@@ -38,12 +38,25 @@ app.use(morgan('combined'));
 // in logs : 127.0.0.1 - x_group=di
 // in logs : 127.0.0.1 - local_user=toto
 
-morgan.token("user", (req) => { return req.headers["x-remote-user"] || "-"});
-morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
+morgan.token("auth", (req) => {
+    if (req.headers["x-remote-user"]) {
+        return `x-remote-user: ${req.headers["x-remote-user"]}`;
+    }
+
+    if (req.headers["x-group"]) {
+        return `x-group: ${req.headers["x-group"]}`;
+    }
+
+    if (req.basicAuthUser) {
+        return `local-user: ${req.basicAuthUser}`;
+    }
+
+    return "-";
+});
    
 
 
-app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
+app.use(morgan(':remote-addr - :auth [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
 
 
 
