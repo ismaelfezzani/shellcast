@@ -38,6 +38,12 @@ app.use(morgan('combined'));
 // in logs : 127.0.0.1 - x_group=di
 // in logs : 127.0.0.1 - local_user=toto
 
+morgan.token("user", (req) => { return req.headers["x-remote-user"] || "-"});
+morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
+   
+
+
+app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
 
 
 
@@ -115,12 +121,7 @@ function checkUser(username, password) {
     
 }
 
-morgan.token("user", (req) => { return req.headers["x-remote-user"] || "-"});
-morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
-   
 
-
-app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
 
@@ -328,55 +329,58 @@ io.sockets.on('connection', (socket) => {
     });
 });
 
-//BasicAuth permettant aux utilisateurs locaux de se connecter
+// BasicAuth permettant aux utilisateurs locaux de se connecter
 const basicAuthShellcast = basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'})
 
-//middleware permettant d'appliquer ou non le middleware sous certaines conditions
-function authIfNeeded(req, res, next) {
+// Middleware permettant d'appliquer ou non le middleware sous certaines conditions et prenant en paramètre les données sotckées dans la variable cast
+function authIfNeeded(castData) {
+    return (req, res, next) =>{
+        // Récupération des users et du groupe passés en headers dans l'URL
+        const userId = req.headers["x-remote-user"];
+        const group = req.headers["x-group"];
 
-    //Récupération des users et du groupe passé en headers dans l'URL
-    const userId = req.headers["x-remote-user"];
-    const group = req.headers["x-group"];
+        // Récupération des users et groupes autorisés
+        let configUsers = config.find(c => c.name === "get bios config");
+        let authorizedUsers = Object.keys(configUsers).includes("grant") ? configUsers["grant"] : undefined;
 
-    //Récupération des users et groupes autorisés
-    let authorizedUsers = config[config.length-1]["grant"]
+        // On applique le basicauth si l'userId n'est pas contenu dans le config YML ou si le groupe n'est pas autorisé
+        if (authorizedUsers !== undefined && !authorizedUsers["x_remote_user"].includes(userId) && !authorizedUsers["x_group"].includes(group) ){
+            return basicAuthShellcast(req, res, next); 
+        }
 
-    //On applique le basicauth si l'userId n'est pas contenu dans le config YML ou si le groupe n'est pas autorisé
-    if (!authorizedUsers["x_remote_user"].includes(userId) && !authorizedUsers["x_group"].includes(group) ){
-        return basicAuthShellcast(req, res, next); 
+        // Si l'URL de CURL contient comme paramètre un user ou un groupe autorisé
+        // on passe à la suite sans passer par le basic auth
+        return next();
     }
-
-    //Si l'URL de CURL contient comme paramètre un user ou un groupe autorisé
-    //on passe à la suite sans passer par le basic auth
-
-    return next();
-
 }
 
 // Handle HTTP requests
 config.forEach((cast) => {
     cast.url = subdir + cast.url.replace(/\/$/, '');
     
-    app.get(cast.url, authIfNeeded, (req, res) => {       
-
+    app.get(cast.url, authIfNeeded(cast), (req, res) => {       
+        // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Missing or wrong password...');
         }
+        // Renvoie la liste des paramètres incorrect au sein du service lancé et renvoie une erreur 400 côté client si la liste en contient au moins une 
         const errors = validateParams(cast.args || [], req, res, cast);
         if (errors.length > 0) {
             return res.status(400).send(errors.join('<br>'));
         }
+        // Charge la page html où sera affiché les résultats de la commande
         res.setHeader('Content-Type', 'text/html');
         res.render('index', { title: cast.name, subdir: subdir });
     });
 
-    app.get(cast.url + '/plain' ,authIfNeeded ,(req, res) => {
+    app.get(cast.url + '/plain' ,authIfNeeded(cast) ,(req, res) => {
         res.setHeader('Content-Type', 'text/plain');
         // TODO basic auth
-
+        // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Incorrect or missing password...');
         }
+        // Renvoie la liste des paramètres incorrect et renvoie une erreur 400 côté client si la liste en contient au moins une 
         const errors = validateParams(cast.args || [], req, res, cast);
         if (errors.length > 0) {
             return res.status(400).send(errors.join('<br>'));
@@ -400,9 +404,10 @@ config.forEach((cast) => {
             cmd = cmd.split("{x_forwarded_for}").join(x_forwarded_for);
             castArgs.push(x_forwarded_for);
         }
-
+        // Permet d'exécuter des commandes produisant beaucoup de données
+        // et d'intéragir avec les sorties std
         const run = spawn('bash', ['-c', cmd]);
-
+        // On exécute la commande sur stdout et stderr
         run.stdout.pipe(res);
         run.stderr.pipe(res);
         
