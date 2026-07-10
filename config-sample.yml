@@ -2,19 +2,6 @@
 - name: Help
   description: "Help page display this file"
   url: /help
-  # Configure autorisations
-  grant:
-    # This activates basic auth on the service, users are defined in users.yml
-    local_user:
-      - user1
-      - user2
-    # This needs extra configuration with external authenticator, see README.md
-    x_remote_user:
-      - remote_user1
-      - remote_user2
-    x_group:
-      - group1
-      - group2
   cmd: bat --plain --color always config.yml
 
 - name: Rainbow
@@ -46,3 +33,24 @@
   args:
     - hostname
     - mac
+
+- name: Auth and mode
+  description : "Test auth and mode"
+  mode: plain
+  # Configure authentication
+  grant:
+    # This activates basic auth on the service, users are defined in users.yml
+    local_user:
+      - user1
+      - user2
+    # This needs extra configuration with external authenticator, see README.md
+    x_remote_user:
+      - remote_user1
+      - remote_user2
+    x_group:
+      - group1
+      - group2
+    password:
+      - pa$$w0rd1
+      - pa$$w0rd2
+  cmd: echo "Authentication succedded with mode plain !"
