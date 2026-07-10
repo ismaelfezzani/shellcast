@@ -40,12 +40,8 @@ app.use(morgan('combined'));
 
 morgan.token("user", (req) => { return req.headers["x-remote-user"] || "-"});
 morgan.token("group", (req) => { return req.headers["x-group"] || "-"});
-   
-
 
 app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
-
-
 
 // Load YAML config
 let config;
@@ -61,50 +57,39 @@ let whitelistedURLs
 
 try {
     let usersFile = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
-    let users = usersFile["users"]
-    let whitelistedURLs = usersFile["from-whitelist"]
+    let users = usersFile["users"] || []
 
-    console.log(whitelistedURLs)
-
-    //Mise en format des utilisateurs pour le basic auth d'express
+    // Mise en format des utilisateurs pour le basic auth d'express
     let formatedUsers = {};
-    for (user in users){
+
+    for (user in users) {
         let key = users[user]["user"];
-        let value =  users[user]["password"];
+        let value = users[user]["password"];
 
         formatedUsers[key] = value;
-
     }
 
     usersShellcast = formatedUsers;
-   
 }
 catch (error) {
     console.error('Error loading YAML users:', error);
     process.exit(1);
 }
 
-
 function getUserAndGroups(url){
     app.get(url, (req, res) => {
         // 1. Récupérer tous les headers
         const tousLesHeaders = req.headers;
         console.log(tousLesHeaders);
-
     });
 }
-
- 
-
 
 function checkUser(username, password) {
     let usersFile
     let userGroup
 
-
     let userNameCheck = Object.keys(usersShellcast).includes(username) ? username : 0
     let passwordCheck = usersShellcast[username] !== undefined ? usersShellcast[username] : 0
-
 
     try {
         const userMatches = basicAuth.safeCompare(username, userNameCheck)
@@ -114,14 +99,8 @@ function checkUser(username, password) {
     }
     catch(error){
         console.log("incorrect logins parameter")
-
     }
-   
-
-    
 }
-
-
 
 const forbiddenChars = ['>', '<', '|', '&', ';', '(', ')', '\\', '!', '*', '$', '=', '+', '~', '"', ' '];
 
@@ -137,8 +116,6 @@ const adjustForbiddenChars = (serviceConfig) => {
         });
     }
 };
-
-
 
 // Fonction pour trouver un caractère interdit dans un argument
 const findForbiddenChar = (arg, serviceConfig) => {
@@ -431,6 +408,4 @@ app.use((req, res) => {
 // Start the server and listen only ipv4
 server.listen(process.env.NODE_PORT, '0.0.0.0', () => {
     console.log('Server listening on *:' + process.env.NODE_PORT);
-
-   
 });
