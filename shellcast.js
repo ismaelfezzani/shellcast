@@ -166,6 +166,20 @@ io.sockets.on('connection', (socket) => {
                 castArgs.push(appGroup);
             }
 
+            // Add magic appUser var
+            if (cmd.includes("{appUser}")) {
+                let appUser = socket.handshake.headers["x-remote-user"] || "unknown";
+                cmd = cmd.split("{appUser}").join(appUser);
+                castArgs.push(appUser);
+            }
+
+            // Add magic appGroup var
+            if (cmd.includes("{appGroup}")) {
+                let appGroup = socket.handshake.headers["x-group"] || "unknown";
+                cmd = cmd.split("{appGroup}").join(appGroup);
+                castArgs.push(appGroup);
+            }
+
             const startTime = Date.now();
 
             const run = spawn('bash', ['-c', cmd]);
