@@ -291,6 +291,20 @@ config.forEach((cast) => {
             castArgs.push(x_forwarded_for);
         }
 
+        // Add magic appUser var
+        if (cmd.includes("{appUser}")) {
+            let appUser = req.headers["x-remote-user"] || "unknown";
+            cmd = cmd.split("{appUser}").join(appUser);
+            castArgs.push(appUser);
+        }
+
+        // Add magic appGroup var
+        if (cmd.includes("{appGroup}")) {
+            let appGroup = req.headers["x-group"] || "unknown";
+            cmd = cmd.split("{appGroup}").join(appGroup);
+            castArgs.push(appGroup);
+        }
+
         const run = spawn('bash', ['-c', cmd]);
 
         run.stdout.pipe(res);
