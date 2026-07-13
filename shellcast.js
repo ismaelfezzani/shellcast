@@ -45,6 +45,7 @@ app.use(morgan(':remote-addr - :user :group [:date[clf]] ":method :url HTTP/:htt
 
 // Load YAML config
 let config;
+
 try {
     config = yaml.safeLoad(fs.readFileSync(process.argv[2], 'utf8'));
 } catch (error) {
@@ -52,12 +53,14 @@ try {
     process.exit(1);
 }
 
+
+let noLocalUsers = false 
 let usersShellcast;
-let whitelistedURLs
+
 
 try {
     let usersFile = yaml.safeLoad(fs.readFileSync("users.yml", 'utf8'))
-    let users = usersFile["users"] || []
+    let users = usersFile["users"] !== undefined && usersFile["users"] !== null ?  usersFile["users"] :  []
 
     // Mise en format des utilisateurs pour le basic auth d'express
     let formatedUsers = {};
@@ -72,8 +75,15 @@ try {
     usersShellcast = formatedUsers;
 }
 catch (error) {
-    console.error('Error loading YAML users:', error);
-    process.exit(1);
+   // console.error("Error : UserFile badly formated");
+    if (error.code !== "ENOENT"){
+        console.error("An error made the user.yml file unusable")
+        process.exit(1);
+    }
+    console.log("No user file")
+    noLocalUsers = true
+
+    //process.exit(1);
 }
 
 function getUserAndGroups(url){
@@ -307,7 +317,7 @@ io.sockets.on('connection', (socket) => {
 });
 
 // BasicAuth permettant aux utilisateurs locaux de se connecter
-const basicAuthShellcast = basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'Imb4T3st4pp'})
+const basicAuthShellcast = basicAuth({users : usersShellcast, authorizer : checkUser, challenge : true,  realm: 'shellcast'})
 
 // Middleware permettant d'appliquer ou non le middleware sous certaines conditions et prenant en paramètre les données sotckées dans la variable cast
 function authIfNeeded(castData) {
@@ -317,13 +327,70 @@ function authIfNeeded(castData) {
         const group = req.headers["x-group"];
 
         // Récupération des users et groupes autorisés
-        let configUsers = config.find(c => c.name === "get bios config");
-        let authorizedUsers = Object.keys(configUsers).includes("grant") ? configUsers["grant"] : undefined;
+        let configUsers = config.find(c => c.name === "Help");
+        let authorizedUsers = Object.keys(configUsers).includes("grant") && configUsers["grant"] !== null ? configUsers["grant"] : {};
 
-        // On applique le basicauth si l'userId n'est pas contenu dans le config YML ou si le groupe n'est pas autorisé
-        if (authorizedUsers !== undefined && !authorizedUsers["x_remote_user"].includes(userId) && !authorizedUsers["x_group"].includes(group) ){
-            return basicAuthShellcast(req, res, next); 
+
+        //console.log(usersShellcast)
+       // console.log(authorizedUsers)
+
+        let localUsersShellcast = usersShellcast !== undefined && Object.keys(usersShellcast).length > 0 ? Object.keys(usersShellcast) : []
+        let localUsersGrant =  authorizedUsers["local_user"] !== undefined &&  authorizedUsers["local_user"] !== null ? authorizedUsers["local_user"] : []
+        
+        //console.log(localUsersShellcast)
+        //console.log(localUsersGrant)
+        
+        let unknownLocalUsers =  localUsersGrant.filter(user => !localUsersShellcast.includes(user))
+        if (unknownLocalUsers.length > 0){
+            console.warn("Warning : some users are not locally registered : " + unknownLocalUsers.toString())
+            //process.exit(1)
         }
+
+        let locUsersPresent = noLocalUsers === false && usersShellcast !== undefined && Object.keys(usersShellcast).length !== 0
+        let notspecialUsers = (authorizedUsers["x_remote_user"] !== undefined && !authorizedUsers["x_remote_user"].includes(userId)) && (!authorizedUsers["x_group"] !== undefined && !authorizedUsers["x_group"].includes(group))
+        //console.log(notspecialUsers)
+        //console.log(unknownLocalUsers)
+       // console.log(not)
+
+       console.log(userId)
+       console.log(group)
+
+        //Dans le cas où grant n'est pas défini, on passe sur de l'authentification
+        if (Object.keys(authorizedUsers).length === 0 && configUsers["grant"] === null){ 
+
+            if (userId !== undefined || group !== undefined){
+               console.warn("Unknown Special user")
+               return res.sendStatus(401)
+            }
+            //On bloque l'accès lors d'une tentative d'intrusion par basicAuth dans le cas où  les users locaux ne sont pas dans config.yml
+            else if (usersShellcast !== undefined && Object.keys(usersShellcast).length === 0){
+                console.log("ici")
+                return basicAuthShellcast(req, res, next); 
+            }
+           
+            else{
+                console.warn("Warning : some users are not locally registered : " + unknownLocalUsers.toString() + " access locked")
+                return res.sendStatus(401)
+            }
+           
+        }
+        else if (notspecialUsers){
+
+
+            if (userId !== undefined || group !== undefined){
+               console.warn("Unknown Special user")
+               return res.sendStatus(401)
+            }
+            else if (locUsersPresent && Object.keys(authorizedUsers).length > 0){
+                return basicAuthShellcast(req, res, next); 
+
+            }
+            
+            console.log("ici")
+            //return res.sendStatus(401)
+            //return basicAuthShellcast(req, res, next); 
+        }
+        // On applique le basicauth si l'userId n'est pas contenu dans le config YML ou si le groupe n'est pas autorisé
 
         // Si l'URL de CURL contient comme paramètre un user ou un groupe autorisé
         // on passe à la suite sans passer par le basic auth
