@@ -310,7 +310,7 @@ const basicAuthShellcast = basicAuth({authorizer : checkUser, challenge : true, 
 function authIfNeeded(castData) {
     return (req, res, next) =>{
 
-        //Cas où grant n'existe pas dans le cast du service
+        //Cas où grant n'existe pas dans le cast du service : pas d'authentification requise
         if (castData["grant"] === undefined){
             return next();
         }
@@ -320,23 +320,28 @@ function authIfNeeded(castData) {
         const specialUserGroup = req.headers["x-group"];
         const password = req.headers["password"]
 
-        // Vérifie si la clé x_remote_user est valide pour le service
-        if (specialUserId !== undefined && castData["grant"]["x_remote_user"].includes(specialUserId)){
+        // Vérifie si la clé x_remote_user est valide pour le service en vérifiant si le service autorise les x_remote_user et si la clé x_remote_user du header 
+        // est contenue dans la section x_remote_user du service
+        if (specialUserId !== undefined && castData["grant"]["x_remote_user"] !== undefined && castData["grant"]["x_remote_user"].includes(specialUserId)){
             return next();
         }
-        // Vérifie si la clé x_group est valide pour le service
-        else if (specialUserGroup !== undefined && castData["grant"]["x_group"].includes(specialUserGroup) ){
+        // Vérifie si la clé x_group est valide pour le service en vérifiant si le service autorise les x_group et si la clé x_group du header 
+        // est contenue dans la section x_group du service
+        else if (specialUserGroup !== undefined && castData["grant"]["x_group"] !== undefined && castData["grant"]["x_group"].includes(specialUserGroup) ){
             return next();
         }
-        // Authentification grâce à un password /!\ avec un curl si le mdp a des caractères spéciaux présents dans le shell, il est recommandé de passer le
+        // Vérifie si la clé password est valide pour le service en vérifiant si le service autorise les password et si la clé password du header 
+        // est contenue dans la section password du service
+        // /!\ avec un curl si le mdp a des caractères spéciaux présents dans le shell, il est recommandé de passer le
         // mdp dans le header entre '' et non entre "" pour éviter que des variables spéciales de celui-ci soient passées en paramètre
-        else if (password !== undefined && castData["grant"]["password"].includes(password) ) {
+        else if (password !== undefined && castData["grant"]["password"] !== undefined && castData["grant"]["password"].includes(password) ) {
             return next()
         }
-        // Renvoie un 401 si le x-remote-user le x-group ou password est passé en header et incorrect
+        // Renvoie un 401 si le x-remote-user ou le x-group ou password est passé en header et incorrect
         else if (specialUserId !== undefined || specialUserGroup !== undefined || password !== undefined ){
             return res.sendStatus(401);
         }
+        // basicauth du service
         else{
             return basicAuthShellcast(req, res, () => {
                 // Vérification de la présence de l'utilisateur saisi dans les utilisateurs du sevice et revoit d'un 401 si non présent
@@ -355,6 +360,10 @@ config.forEach((cast) => {
     cast.url = subdir + cast.url.replace(/\/$/, '');
     
     app.get(cast.url, authIfNeeded(cast), (req, res) => {       
+        // Renvoie un 403 si la mode de lancement défini dans le service n'est pas set sur web (si non défini, on peut lancer dans chaque mode)
+        if (cast.mode !== undefined && cast.mode !== "web"){
+            return res.status(403).send('Cannot launch this service in mode web');
+        }
         // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
         if (cast.password && cast.password !== req.query.password) {
             return res.status(403).send('Missing or wrong password...');
@@ -370,6 +379,11 @@ config.forEach((cast) => {
     });
 
     app.get(cast.url + '/plain' ,authIfNeeded(cast) ,(req, res) => {
+        // Renvoie un 403 si la mode de lancement défini dans le service n'est pas set sur plain (si non défini, on peut lancer dans chaque mode)
+        if (cast.mode !== undefined && cast.mode !== "plain"){
+            return res.status(403).send('Cannot launch this service in mode plain');
+        }
+
         res.setHeader('Content-Type', 'text/plain');
         // TODO basic auth
         // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
