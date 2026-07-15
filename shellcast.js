@@ -17,6 +17,7 @@ const express = require('express'),
       favicon = require('serve-favicon'),
       validator = require('validator'),
       basicAuth = require('express-basic-auth'),
+      inspector = require("node:inspector"),
       { exec } = require('child_process');
 
 // Set trust proxy before adding any middleware or routes
@@ -53,8 +54,6 @@ try {
     process.exit(1);
 }
 
-
-let noLocalUsers = false 
 let usersShellcast;
 
 
@@ -81,11 +80,13 @@ catch (error) {
         process.exit(1);
     }
     console.log("No user file")
-    noLocalUsers = true
+    //on donne à la variable userShellcast un objet JS vide si users.yml est absent
+    usersShellcast = {}
 
     //process.exit(1);
 }
 
+//Fonction permettant d'authentifier l'utilisateur du service par rapport aux utilisateurs locaux définis dans users.yml
 function checkUser(username, password) {
     const expectedUser = Object.prototype.hasOwnProperty.call(usersShellcast, username)
         ? username
@@ -303,6 +304,16 @@ io.sockets.on('connection', (socket) => {
     });
 });
 
+function debugLogs(user, cmd){
+    const modeDebug = inspector.url() !== undefined
+    if (modeDebug){
+        const date = new Date()
+        //const dateLog =  `${date.get()} ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}` 
+        console.log("user : " + user + " executed the command " + cmd+ "on the date "+ date.getDay()+ "/" +date.getMonth() + "/" + date.getFullYear()+ " at "+ date.getHours()+":" + date.getMinutes() )
+    }
+     
+}
+
 // BasicAuth permettant aux utilisateurs locaux de se connecter
 const basicAuthShellcast = basicAuth({authorizer : checkUser, challenge : true,  realm: 'shellcast'})
 
@@ -315,14 +326,18 @@ function authIfNeeded(castData) {
             return next();
         }
 
-        // Récupération du users, du groupe et du mdp du service permettant de s'authentifier sans basicAuth passés en headers dans l'URL
+        // Récupération du users, du groupe permettant de s'authentifier sans basicAuth passés en headers dans l'URL ainsi que du mot de passe qui lui est 
+        // passé directement dans l'URL
+        
         const specialUserId = req.headers["x-remote-user"];
         const specialUserGroup = req.headers["x-group"];
-        const password = req.headers["password"]
+        const password = req.query.password
+        
 
         // Vérifie si la clé x_remote_user est valide pour le service en vérifiant si le service autorise les x_remote_user et si la clé x_remote_user du header 
         // est contenue dans la section x_remote_user du service
         if (specialUserId !== undefined && castData["grant"]["x_remote_user"] !== undefined && castData["grant"]["x_remote_user"].includes(specialUserId)){
+            debugLogs(specialUserId,castData.cmd)
             return next();
         }
         // Vérifie si la clé x_group est valide pour le service en vérifiant si le service autorise les x_group et si la clé x_group du header 
@@ -332,8 +347,8 @@ function authIfNeeded(castData) {
         }
         // Vérifie si la clé password est valide pour le service en vérifiant si le service autorise les password et si la clé password du header 
         // est contenue dans la section password du service
-        // /!\ avec un curl si le mdp a des caractères spéciaux présents dans le shell, il est recommandé de passer le
-        // mdp dans le header entre '' et non entre "" pour éviter que des variables spéciales de celui-ci soient passées en paramètre
+        // /!\  si le mdp a des caractères spéciaux présents dans le shell, il est recommandé de passer le
+        // mdp dans la query entre '' pour éviter que des variables spéciales de celui-ci soient passées en paramètre
         else if (password !== undefined && castData["grant"]["password"] !== undefined && castData["grant"]["password"].includes(password) ) {
             return next()
         }
