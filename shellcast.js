@@ -333,8 +333,13 @@ function authIfNeeded(castData) {
         else if (password !== undefined && castData["grant"]["password"].includes(password) ) {
             return next()
         }
+        // Renvoie un 401 si le x-remote-user le x-group ou password est passé en header et incorrect
+        else if (specialUserId !== undefined || specialUserGroup !== undefined || password !== undefined ){
+            return res.sendStatus(401);
+        }
         else{
             return basicAuthShellcast(req, res, () => {
+                // Vérification de la présence de l'utilisateur saisi dans les utilisateurs du sevice et revoit d'un 401 si non présent
                 if (!castData.grant.local_user.includes(req.auth.user)) {
                     return res.sendStatus(401);
                 }
