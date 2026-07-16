@@ -331,37 +331,32 @@ function authIfNeeded(castData) {
         
         const specialUserId = req.headers["x-remote-user"];
         const specialUserGroup = req.headers["x-group"];
-        const password = req.query.password
+        const password = req.query.password;
         
 
         // Vérifie si la clé x_remote_user est valide pour le service en vérifiant si le service autorise les x_remote_user et si la clé x_remote_user du header 
         // est contenue dans la section x_remote_user du service
-        if (specialUserId !== undefined && castData["grant"]["x_remote_user"] !== undefined && castData["grant"]["x_remote_user"].includes(specialUserId)){
+        if (req.headers["x-remote-user"] !== undefined && castData["grant"]["x_remote_user"] !== undefined && castData["grant"]["x_remote_user"].includes(specialUserId)){
             debugLogs(specialUserId,castData.cmd)
             return next();
         }
         // Vérifie si la clé x_group est valide pour le service en vérifiant si le service autorise les x_group et si la clé x_group du header 
         // est contenue dans la section x_group du service
-        else if (specialUserGroup !== undefined && castData["grant"]["x_group"] !== undefined && castData["grant"]["x_group"].includes(specialUserGroup) ){
+        else if (req.headers["x-group"] !== undefined && castData["grant"]["x_group"] !== undefined && castData["grant"]["x_group"].includes(specialUserGroup) ){
             return next();
         }
         // Vérifie si la clé password est valide pour le service en vérifiant si le service autorise les password et si la clé password du header 
         // est contenue dans la section password du service
-        // /!\  si le mdp a des caractères spéciaux présents dans le shell, il est recommandé de passer le
-        // mdp dans la query entre '' pour éviter que des variables spéciales de celui-ci soient passées en paramètre
-        else if (password !== undefined && castData["grant"]["password"] !== undefined && castData["grant"]["password"].includes(password) ) {
+        
+        else if (req.query.password !== undefined && castData["grant"]["password"] !== undefined && castData["grant"]["password"].includes(password) ) {
             return next()
-        }
-        // Renvoie un 401 si le x-remote-user ou le x-group ou password est passé en header et incorrect
-        else if (specialUserId !== undefined || specialUserGroup !== undefined || password !== undefined ){
-            return res.sendStatus(401);
-        }
+        }    
         // basicauth du service
         else{
             return basicAuthShellcast(req, res, () => {
                 // Vérification de la présence de l'utilisateur saisi dans les utilisateurs du sevice et revoit d'un 401 si non présent
                 if (!castData.grant.local_user.includes(req.auth.user)) {
-                    return res.sendStatus(401);
+                    return res.sendStatus(403);
                 }
                 next();
             }); 
@@ -379,10 +374,7 @@ config.forEach((cast) => {
         if (cast.mode !== undefined && cast.mode !== "web"){
             return res.status(403).send('Cannot launch this service in mode web');
         }
-        // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
-        if (cast.password && cast.password !== req.query.password) {
-            return res.status(403).send('Missing or wrong password...');
-        }
+      
         // Renvoie la liste des paramètres incorrect au sein du service lancé et renvoie une erreur 400 côté client si la liste en contient au moins une 
         const errors = validateParams(cast.args || [], req, res, cast);
         if (errors.length > 0) {
@@ -400,11 +392,7 @@ config.forEach((cast) => {
         }
 
         res.setHeader('Content-Type', 'text/plain');
-        // TODO basic auth
-        // Gère si le mdp du service shellcast est le même que celui passé dans les headers de l'url
-        if (cast.password && cast.password !== req.query.password) {
-            return res.status(403).send('Incorrect or missing password...');
-        }
+        
         // Renvoie la liste des paramètres incorrect et renvoie une erreur 400 côté client si la liste en contient au moins une 
         const errors = validateParams(cast.args || [], req, res, cast);
         if (errors.length > 0) {

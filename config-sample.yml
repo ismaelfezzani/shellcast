@@ -23,8 +23,6 @@
 - name: Args
   description: "Test args, suburls, password and plain text"
   url: /args/test
-  # Set a password to query url as "?password=suburlpass"
-  password: suburlpass
   # Whitelist some specific chars for that service
   whitelist: ["(", ")", " "]
   # curl -Gs --data-urlencode "hostname=( f o o )" "http://localhost:3000/shellcast/args/test/plain?mac=00:11:22:33:44:55&password=suburlpass"
@@ -37,12 +35,12 @@
 - name: Auth and mode
   description : "Test auth and mode"
   mode: plain
+  url: /auth
   # Configure authentication
   grant:
     # This activates basic auth on the service, users are defined in users.yml
     local_user:
       - user1
-      - user2
     # This needs extra configuration with external authenticator, see README.md
     x_remote_user:
       - remote_user1
